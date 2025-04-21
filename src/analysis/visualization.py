@@ -1,60 +1,70 @@
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
+import seaborn as sns
+import torch
+import pandas as pd
+from matplotlib.patches import Patch
 
-def plot_feature_importance(feature_importances, feature_names, groups):
-    plt.figure(figsize=(20, 10))
+def plot_feature_importance(feature_importance, feature_names, data_params):
+    import pandas as pd
+    df = pd.DataFrame({
+        'Feature': feature_names,
+        'Importance': feature_importance
+    })
     
-    colors = ['#1f77b4', '#2ca02c', '#d62728']
-    start_idx = 0
+    df['Group'] = 'Other'
+    trans_start, trans_end = data_params['transcriptomics_idx']
+    prot_start, prot_end = data_params['proteomics_idx']
+    meta_start, meta_end = data_params['metabolomics_idx']
     
-    for i, (group, count) in enumerate(groups):
-        end_idx = start_idx + count
-        plt.bar(
-            range(start_idx, end_idx),
-            feature_importances[start_idx:end_idx],
-            color=colors[i],
-            label=group
-        )
-        start_idx = end_idx
+    df.loc[trans_start:trans_end-1, 'Group'] = 'Transcriptomics'
+    df.loc[prot_start:prot_end-1, 'Group'] = 'Proteomics'
+    df.loc[meta_start:meta_end-1, 'Group'] = 'Metabolomics'
     
-    plt.xlabel('Feature Index')
-    plt.ylabel('Importance')
-    plt.title('Feature Importance')
-    plt.legend()
-    plt.show()
-
-def plot_prediction_results(predictions, actuals, confidence_intervals):
+    df = df.sort_values('Importance', ascending=True)
+    
+    color_map = {
+        'Transcriptomics': 'skyblue',
+        'Proteomics': 'lightgreen',
+        'Metabolomics': 'salmon'
+    }
+    
     plt.figure(figsize=(12, 8))
-    plt.style.use('ggplot')
+    bars = plt.barh(range(len(df)), df['Importance'])
     
-    for pred in predictions:
-        plt.scatter(
-            range(len(pred)), 
-            pred, 
-            alpha=0.2, 
-            c='dodgerblue', 
-            edgecolors='none',
-            s=50
-        )
+    for i, bar in enumerate(bars):
+        bar.set_color(color_map.get(df.iloc[i]['Group'], 'gray'))
     
-    plt.plot(actuals, label='Actual Values', c='black', linewidth=2)
-    plt.plot(
-        np.mean(predictions, axis=0),
-        label='Predicted Mean',
-        c='crimson',
-        linewidth=2
-    )
+    plt.xlabel('Feature Importance')
+    plt.ylabel('Features')
+    plt.title('Feature Importance Across Different Omics Data')
     
-    plt.fill_between(
-        range(len(actuals)),
-        confidence_intervals[0],
-        confidence_intervals[1],
-        color='crimson',
-        alpha=0.3
-    )
+    from matplotlib.patches import Patch
+    legend_elements = [Patch(facecolor=color, label=group)
+                      for group, color in color_map.items()]
+    plt.legend(handles=legend_elements, loc='lower right')
     
-    plt.title('Actual vs. Predicted Values with 95% CI')
-    plt.xlabel('Sample Index')
-    plt.ylabel('Value')
-    plt.show()
+    plt.tight_layout()
+    
+    return plt.gcf()
+
+def plot_prediction_results(model, X, y, device):
+    model.eval()
+    with torch.no_grad():
+        X_tensor = torch.FloatTensor(X).to(device)
+        predictions = model(X_tensor).cpu().numpy()
+    
+    plt.figure(figsize=(8, 6))
+    plt.scatter(y, predictions, alpha=0.5)
+    
+    min_val = min(y.min(), predictions.min())
+    max_val = max(y.max(), predictions.max())
+    plt.plot([min_val, max_val], [min_val, max_val], 'r--')
+    
+    plt.xlabel('True Values')
+    plt.ylabel('Predictions')
+    plt.title('Prediction Results')
+    
+    plt.tight_layout()
+    
+    return plt.gcf()

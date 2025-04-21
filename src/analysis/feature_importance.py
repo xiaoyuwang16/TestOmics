@@ -1,52 +1,62 @@
 import torch
 import numpy as np
+import pandas as pd
 from lime import lime_tabular
+import torch.nn.functional as F
 from sklearn.metrics import mean_squared_error
 
 def calculate_feature_importance(model, X_scaled, y, feature_names, device):
-    explainer = lime.lime_tabular.LimeTabularExplainer(
+    model.eval()
+    
+    def predict_fn(x):
+        x_tensor = torch.FloatTensor(x).to(device)
+        with torch.no_grad():
+            return model(x_tensor).cpu().numpy()
+    
+    explainer = lime_tabular.LimeTabularExplainer(
         training_data=X_scaled,
         mode='regression',
         feature_names=feature_names
     )
     
-    def predict_fn(x):
-        x_tensor = torch.tensor(x, dtype=torch.float32).to(device)
-        model.eval()
-        with torch.no_grad():
-            preds = model(x_tensor)
-        return preds.cpu().numpy()
+    feature_importances = np.zeros(X_scaled.shape[1])
+    num_samples = X_scaled.shape[0]
     
-    feature_importances = np.zeros((X_scaled.shape[0], X_scaled.shape[1]))
-    for i in range(X_scaled.shape[0]):
+    for i in range(num_samples):
         exp = explainer.explain_instance(
             X_scaled[i], 
-            predict_fn, 
+            predict_fn,
             num_features=X_scaled.shape[1]
         )
-        exp_map = {exp.domain_mapper.feature_names[j]: exp.local_exp[1][j][1] 
-                  for j in range(X_scaled.shape[1])}
-        feature_importances[i] = [exp_map[feature] for feature in feature_names]
+        
+        for feature, importance in exp.local_exp[1]:
+            feature_importances[feature] += abs(importance)
     
-    X_tensor = torch.tensor(X_scaled, dtype=torch.float32).to(device)
-    y_tensor = torch.tensor(y, dtype=torch.float32).to(device)
+    feature_importances /= num_samples
+    
+    X_tensor = torch.FloatTensor(X_scaled).to(device)
+    y_tensor = torch.FloatTensor(y).to(device)
     
     with torch.no_grad():
-        original_preds = model(X_tensor)
-        original_score = mean_squared_error(
-            y_tensor.cpu().numpy(), 
-            original_preds.cpu().numpy()
+        base_score = mean_squared_error(
+            y_tensor.cpu().numpy(),
+            model(X_tensor).cpu().numpy()
         )
     
-    permutation_importance = []
+    permutation_importance = np.zeros(X_scaled.shape[1])
+    
     for i in range(X_scaled.shape[1]):
         X_permuted = X_tensor.clone()
-        X_permuted[:, i] = X_permuted[torch.randperm(X_permuted.shape[0]), i]
-        permuted_preds = model(X_permuted)
-        permuted_score = mean_squared_error(
-            y_tensor.cpu().numpy(), 
-            permuted_preds.cpu().numpy()
-        )
-        permutation_importance.append(original_score - permuted_score)
+        X_permuted[:, i] = X_permuted[torch.randperm(len(X_permuted)), i]
+        
+        with torch.no_grad():
+            permuted_score = mean_squared_error(
+                y_tensor.cpu().numpy(),
+                model(X_permuted).cpu().numpy()
+            )
+        
+        permutation_importance[i] = base_score - permuted_score
     
-    return feature_importances, permutation_importance
+    combined_importance = (feature_importances + np.abs(permutation_importance)) / 2
+    
+    return combined_importance

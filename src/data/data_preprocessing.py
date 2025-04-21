@@ -1,48 +1,73 @@
+import torch
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
+import pandas as pd
 from torch.utils.data import Dataset, DataLoader
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 
 class CustomDataset(Dataset):
     def __init__(self, x, y):
         self.x = torch.FloatTensor(x)
         self.y = torch.FloatTensor(y)
-
-    def __getitem__(self, idx):
-        return {'x': self.x[idx], 'y': self.y[idx]}
-
+        
     def __len__(self):
         return len(self.x)
-
-def split_and_scale(X, scaler, indices):
-    X_subset = X.iloc[:, indices[0]:indices[1]]
-    return scaler.fit_transform(X_subset)
-
-def add_gaussian_noise(X, mean=0.0, std=0.01):
-    noise = np.random.normal(mean, std, X.shape)
-    return X + noise
-
-def preprocess_data(X, y, transcriptomics_idx, proteomics_idx, metabolomics_idx):
-    scaler_transcriptomics = MinMaxScaler()
-    scaler_proteomics = MinMaxScaler()
-    scaler_metabolomics = MinMaxScaler()
     
-    X_transcriptomics_scaled = split_and_scale(X, scaler_transcriptomics, transcriptomics_idx)
-    X_proteomics_scaled = split_and_scale(X, scaler_proteomics, proteomics_idx)
-    X_metabolomics_scaled = split_and_scale(X, scaler_metabolomics, metabolomics_idx)
+    def __getitem__(self, idx):
+        return self.x[idx], self.y[idx]
 
-    X_scaled = np.concatenate(
-        [X_transcriptomics_scaled, X_proteomics_scaled, X_metabolomics_scaled], 
-        axis=1
+def preprocess_data(X, y, transcriptomics_idx=(0, 597), 
+                   proteomics_idx=(597, 1069), 
+                   metabolomics_idx=(1069, 1562),
+                   test_size=0.2, random_state=42):
+    if isinstance(X, pd.DataFrame):
+        X = X.values
+    if isinstance(y, pd.DataFrame):
+        y = y.values
+        
+    scaler = StandardScaler()
+    
+    X_transcriptomics = X[:, transcriptomics_idx[0]:transcriptomics_idx[1]]
+    X_proteomics = X[:, proteomics_idx[0]:proteomics_idx[1]]
+    X_metabolomics = X[:, metabolomics_idx[0]:metabolomics_idx[1]]
+    
+    X_transcriptomics_scaled = scaler.fit_transform(X_transcriptomics)
+    X_proteomics_scaled = scaler.fit_transform(X_proteomics)
+    X_metabolomics_scaled = scaler.fit_transform(X_metabolomics)
+    
+    X_scaled = np.concatenate([
+        X_transcriptomics_scaled,
+        X_proteomics_scaled,
+        X_metabolomics_scaled
+    ], axis=1)
+    
+    X_noisy1 = X_scaled + np.random.normal(0, 0.01, X_scaled.shape)
+    X_noisy2 = X_scaled + np.random.normal(0, 0.01, X_scaled.shape)
+    X_noisy3 = X_scaled + np.random.normal(0, 0.01, X_scaled.shape)
+    
+    X_augmented = np.vstack([X_scaled, X_noisy1, X_noisy2, X_noisy3])
+    y_augmented = np.vstack([y, y, y, y])
+    
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_augmented, 
+        y_augmented,
+        test_size=test_size,
+        random_state=random_state
     )
     
-    X_train_noisy1 = add_gaussian_noise(X_scaled)
-    X_train_noisy2 = add_gaussian_noise(X_scaled)
-    X_train_noisy3 = add_gaussian_noise(X_scaled)
+    train_dataset = CustomDataset(X_train, y_train)
+    test_dataset = CustomDataset(X_test, y_test)
     
-    X_augmented = np.concatenate([X_scaled, X_train_noisy1, X_train_noisy2, X_train_noisy3])
-    y_augmented = np.concatenate([y, y, y, y])
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=32,
+        shuffle=True
+    )
     
-    dataset = CustomDataset(X_augmented, y_augmented)
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=32,
+        shuffle=False
+    )
     
-    return dataloader, X_scaled
+    return train_loader, test_loader, X_scaled
