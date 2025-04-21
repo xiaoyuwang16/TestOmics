@@ -1,7 +1,6 @@
 from pathlib import Path
 import os
 
-# 设置根目录和数据目录
 ROOT_DIR = "/your_path"  
 DATA_DIRS = {
     'rna_file': "data/rna.csv",     
@@ -9,7 +8,6 @@ DATA_DIRS = {
     'metabolomics_file': "data/metabolomics.csv"         
 }
 
-# 自动生成完整路径配置
 DATA_CONFIG = {
     'raw_data': {
         'rna_path': str(Path(ROOT_DIR) / DATA_DIRS['rna_file']),
@@ -18,7 +16,7 @@ DATA_CONFIG = {
     },
     'processed_data': {
         'scaled_data': str(Path(ROOT_DIR) / 'data/processed/scaled_data.csv'),
-        'feature_importance': str(Path(ROOT_DIR) / 'data/processed')  # 改为目录路径
+        'feature_importance': str(Path(ROOT_DIR) / 'data/processed')  
     },
     'output': {
         'model_dir': str(Path(ROOT_DIR) / 'models'),
@@ -27,7 +25,7 @@ DATA_CONFIG = {
     }
 }
 
-# 模型配置保持不变
+
 MODEL_CONFIG = {
     'model_params': {
         'dropout_rate1': 0.3566765862692761,
