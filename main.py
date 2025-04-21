@@ -14,22 +14,17 @@ from config.data_config import DATA_CONFIG, MODEL_CONFIG
 import matplotlib.pyplot as plt
 
 def ensure_directory_exists(path):
-    """确保目录存在，如果不存在则创建"""
     if isinstance(path, (str, Path)):
-        # 如果是文件路径，获取其目录
         directory = os.path.dirname(str(path)) if os.path.dirname(str(path)) else str(path)
-        # 创建目录（如果不存在）
         if directory:
             os.makedirs(directory, exist_ok=True)
 
 def main():
     try:
-        # 打印数据路径
         print("\nUsing data files:")
         for key, path in DATA_CONFIG['raw_data'].items():
             print(f"{key}: {path}")
         
-        # 创建必要的目录
         for path in [
             DATA_CONFIG['processed_data']['scaled_data'],
             DATA_CONFIG['processed_data']['feature_importance'],
@@ -39,7 +34,7 @@ def main():
         ]:
             ensure_directory_exists(path)
         
-        # 加载数据
+        # Loading data
         print("\nLoading data...")
         X, y, feature_names = load_omix_data(
             DATA_CONFIG['raw_data']['rna_path'],
@@ -48,7 +43,7 @@ def main():
         )
         print(f"Data loaded. Shape of X: {X.shape}, Shape of y: {y.shape}")
         
-        # 数据预处理
+        # Data preprocessing
         print("\nPreprocessing data...")
         train_loader, test_loader, X_scaled = preprocess_data(
             X, y, 
@@ -56,7 +51,7 @@ def main():
         )
         print("Data preprocessing completed.")
         
-        # 初始化模型
+        # Initialization
         print("\nInitializing model...")
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model = TestOmix(
@@ -65,7 +60,7 @@ def main():
         ).to(device)
         print("Model initialized.")
         
-        # 模型训练
+        # Training
         print("\nStarting model training...")
         best_model_state, train_loss, best_mae = trainer(
             train_loader, 
@@ -75,13 +70,12 @@ def main():
         )
         print(f"\nTraining completed. Best MAE: {best_mae:.4f}")
         
-        # 保存模型
         model_path = os.path.join(DATA_CONFIG['output']['model_dir'], 'best_model.pth')
         ensure_directory_exists(model_path)
         torch.save(best_model_state, model_path)
         print(f"\nModel saved to {model_path}")
         
-        # 特征重要性分析
+        # Feature importance calculation
         print("\nCalculating feature importance...")
         feature_importance = calculate_feature_importance(
             model,
@@ -91,10 +85,9 @@ def main():
             device=device
         )
         
-        # 保存特征重要性结果
         importance_file_path = os.path.join(
             DATA_CONFIG['processed_data']['feature_importance'],
-            'feature_importance.csv'  # 添加文件名
+            'feature_importance.csv'  
         )
         ensure_directory_exists(importance_file_path)
         importance_df = pd.DataFrame({
@@ -104,7 +97,6 @@ def main():
         importance_df.to_csv(importance_file_path, index=False)
         print(f"Feature importance saved to {importance_file_path}")
 
-        # 保存训练结果
         results_path = os.path.join(
             DATA_CONFIG['output']['results_dir'],
             'training_results.csv'
@@ -116,14 +108,13 @@ def main():
         }).to_csv(results_path, index=False)
         print(f"Training results saved to {results_path}")
 
-        # 生成可视化
+        # Visualization
         print("\nGenerating visualizations...")
         viz_dir = DATA_CONFIG['output']['visualizations_dir']
         ensure_directory_exists(viz_dir)
 
-        # 特征重要性可视化
         importance_viz_path = os.path.join(viz_dir, 'feature_importance.png')
-        ensure_directory_exists(importance_viz_path)  # 确保目录存在
+        ensure_directory_exists(importance_viz_path)  
         fig = plot_feature_importance(
             feature_importance,
             feature_names,
@@ -132,9 +123,8 @@ def main():
         fig.savefig(importance_viz_path)
         plt.close(fig)
 
-        # 预测结果可视化
         predictions_viz_path = os.path.join(viz_dir, 'predictions.png')
-        ensure_directory_exists(predictions_viz_path)  # 确保目录存在
+        ensure_directory_exists(predictions_viz_path)  
         fig = plot_prediction_results(
             model,
             X_scaled,
