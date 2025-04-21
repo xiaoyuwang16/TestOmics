@@ -2,7 +2,8 @@
 A deep learning framework for integrating and analyzing multi-omics data from plant-microbe interactions. This repository contains the implementation of a feedforward neural network model designed to dissect complex biological mechanisms through nonlinear regression analysis.  
 
 The article is available at:   
-Wang, X., Zhang, H., Zhan, X., Li, J., Huang, J., & Qin, Z. (2024). Dissecting the Herbicidal Mechanism of Microbial Natural Product Lydicamycins Using a Deep Learning-Based Nonlinear Regression Model. ACS omega, 9(44), 44778–44784. https://doi.org/10.1021/acsomega.4c07971![image](https://github.com/user-attachments/assets/2c10895f-9163-4e61-bae0-d917e3e9e2c7)
+Wang, X., Zhang, H., Zhan, X., Li, J., Huang, J., & Qin, Z. (2024). Dissecting the Herbicidal Mechanism of Microbial Natural Product Lydicamycins Using a Deep Learning-Based Nonlinear Regression Model. ACS omega, 9(44), 44778–44784. https://doi.org/10.1021/acsomega.4c07971
+
 
 
 ## Description
